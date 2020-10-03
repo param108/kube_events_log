@@ -13,6 +13,8 @@ import (
 
 	"sync"
 
+	"strings"
+
 	"k8s.io/api/events/v1beta1"
 	kubeinformers "k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
@@ -20,13 +22,21 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 )
 
+func esc(s string) string {
+	ret := strings.Replace(s, "\n", "\\n", -1)
+	ret = strings.Replace(ret, "\t", "\\t", -1)
+	ret = strings.Replace(ret, "\"", "\\\"", -1)
+	return ret
+}
+
 func dumpObj(obj interface{}) {
 	event := obj.(*v1beta1.Event)
 	mutex.Lock()
 
 	//fmt.Printf("{\"reason\":\"%s\", \"resource\":\"%s\", \"note\":\"%s\", \"time\":\"%s\"}\n", event.Reason, event.ObjectMeta.SelfLink, event.Note, time.Now().String())
 
-	fmt.Fprintf(logfile, "{\"reason\":\"%s\", \"resource\":\"%s\", \"note\":\"%s\", \"time\":\"%s\"}\n", event.Reason, event.ObjectMeta.SelfLink, event.Note, time.Now().String())
+	fmt.Fprintf(logfile, "{\"reason\":\"%s\", \"resource\":\"%s\", \"note\":\"%s\", \"time\":\"%s\"}\n", esc(event.Reason),
+		esc(event.ObjectMeta.SelfLink), esc(event.Note), esc(time.Now().String()))
 
 	mutex.Unlock()
 }
