@@ -22,16 +22,19 @@ import (
 
 func dumpObj(obj interface{}) {
 	event := obj.(*v1beta1.Event)
-	//fmt.Println(event.Reason)
 	mutex.Lock()
-	fmt.Printf("{\"reason\":\"%s\", \"resource\":\"%s\", \"note\":\"%s\", \"time\":\"%s\"}\n", event.Reason, event.ObjectMeta.SelfLink, event.Note, time.Now().String())
+
+	//fmt.Printf("{\"reason\":\"%s\", \"resource\":\"%s\", \"note\":\"%s\", \"time\":\"%s\"}\n", event.Reason, event.ObjectMeta.SelfLink, event.Note, time.Now().String())
+
 	fmt.Fprintf(logfile, "{\"reason\":\"%s\", \"resource\":\"%s\", \"note\":\"%s\", \"time\":\"%s\"}\n", event.Reason, event.ObjectMeta.SelfLink, event.Note, time.Now().String())
+
 	mutex.Unlock()
 }
 
 var logfile *os.File
 var mutex sync.Mutex
 var logfilename *string
+var quit chan int = make(chan int)
 
 func handleSignals() {
 	signal_chan := make(chan os.Signal, 1)
@@ -46,6 +49,9 @@ func handleSignals() {
 	}
 	logfile = ilogfile
 	go func() {
+		defer func() {
+			quit <- 1
+		}()
 		for {
 			s := <-signal_chan
 			switch s {
@@ -55,7 +61,8 @@ func handleSignals() {
 				logfile.Close()
 				ilogfile, err := os.OpenFile(*logfilename, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0600)
 				if err != nil {
-					panic(err)
+					fmt.Println(err)
+					return
 				}
 				logfile = ilogfile
 				mutex.Unlock()
@@ -98,7 +105,5 @@ func main() {
 	stop := make(chan struct{})
 	defer close(stop)
 	kubeInformerFactory.Start(stop)
-	for {
-		time.Sleep(time.Second)
-	}
+	<-quit
 }
